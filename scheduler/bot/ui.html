@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>WA Auto Sender</title>
+<meta name="theme-color" content="#14181c">
+<style>
+  :root{
+    --ink:#14181c; --ink-soft:#1f262d; --paper:#f4f1e8; --green:#25d366;
+    --amber:#f5a623; --red:#ff6b6b; --line:#2c343c; --muted:#7c8892;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--ink); color:var(--paper); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; display:flex; justify-content:center; min-height:100vh;}
+  .app{width:100%; max-width:460px; padding:24px 16px 48px;}
+  h1{font-size:24px; margin:0 0 4px;} h1 span{color:var(--green);}
+  .sub{color:var(--muted); font-size:14px; margin:0 0 18px;}
+  .card{background:var(--ink-soft); border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:18px;}
+  .pill{display:inline-flex; align-items:center; gap:8px; font-size:14px; padding:8px 12px; border-radius:999px; border:1px solid var(--line); margin-bottom:16px;}
+  .dot{width:9px; height:9px; border-radius:50%; background:var(--muted);}
+  .ok .dot{background:var(--green);} .warn .dot{background:var(--amber);}
+  label{display:block; font-size:13px; color:var(--muted); margin:12px 0 6px;}
+  label:first-child{margin-top:0;}
+  input,textarea,select{width:100%; background:var(--ink); color:var(--paper); border:1px solid var(--line); border-radius:10px; padding:12px; font-size:16px; font-family:inherit;}
+  textarea{min-height:96px; resize:vertical;}
+  .row{display:flex; gap:10px;} .row > *{flex:1; min-width:0;}
+  button{font:inherit; font-size:16px; font-weight:600; border:0; border-radius:12px; padding:13px 16px; cursor:pointer;}
+  .primary{background:var(--green); color:#062414; width:100%; margin-top:16px;}
+  .small{font-size:13px; padding:8px 11px; border-radius:9px; font-weight:500; background:transparent; color:var(--red); border:1px solid var(--line);}
+  .code{font-size:34px; font-weight:700; letter-spacing:4px; text-align:center; color:var(--green); margin:14px 0; font-variant-numeric:tabular-nums;}
+  .steps{font-size:14px; line-height:1.6; color:var(--muted); padding-left:18px; margin:8px 0 0;}
+  .steps b{color:var(--paper);}
+  h2{font-size:15px; color:var(--muted); font-weight:600; margin:24px 0 10px; text-transform:uppercase; letter-spacing:.6px;}
+  .item{background:var(--ink-soft); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:10px;}
+  .item.done{opacity:.55;}
+  .top{display:flex; justify-content:space-between; gap:10px; align-items:baseline;}
+  .to{font-weight:600; overflow-wrap:anywhere;} .when{font-size:13px; color:var(--muted); white-space:nowrap;}
+  .state{font-size:13px; color:var(--green); margin-top:4px;} .state.err{color:var(--red);}
+  .msg{margin:8px 0 10px; white-space:pre-wrap; overflow-wrap:anywhere; font-size:15px; line-height:1.4;}
+  .empty{color:var(--muted); font-size:14px; text-align:center; padding:18px 0;}
+  .err-box{color:var(--red); font-size:14px; margin-top:10px;}
+  .toast{position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:var(--paper); color:var(--ink); padding:10px 16px; border-radius:10px; font-size:14px; opacity:0; transition:opacity .2s; pointer-events:none; max-width:90vw;}
+  .toast.show{opacity:1;}
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>WA <span>Auto Sender</span></h1>
+  <p class="sub">Messages go out by themselves at the set time, even when the phone is locked.</p>
+
+  <div class="pill" id="pill"><span class="dot"></span><span id="pillText">Checking…</span></div>
+
+  <!-- Step 1: link -->
+  <div class="card" id="linkCard" hidden>
+    <label for="myPhone">Your WhatsApp number (with country code)</label>
+    <input id="myPhone" type="tel" inputmode="tel" placeholder="e.g. 91 98765 43210">
+    <button class="primary" id="pairBtn" type="button">Get linking code</button>
+    <div id="codeBox" hidden>
+      <div class="code" id="code"></div>
+      <ol class="steps">
+        <li>Open <b>WhatsApp</b> → <b>⋮</b> → <b>Linked devices</b> → <b>Link a device</b>.</li>
+        <li>Tap <b>Link with phone number instead</b> at the bottom.</li>
+        <li>Type the code above. This page changes to "Connected" by itself.</li>
+      </ol>
+    </div>
+    <div class="err-box" id="linkErr"></div>
+  </div>
+
+  <!-- Step 2: schedule -->
+  <form class="card" id="form" autocomplete="off" hidden>
+    <label for="phone">Send to (number with country code)</label>
+    <input id="phone" type="tel" inputmode="tel" required placeholder="e.g. 91 98765 43210">
+    <label for="name">Name (optional)</label>
+    <input id="name" type="text" placeholder="e.g. Ravi">
+    <label for="text">Message</label>
+    <textarea id="text" required placeholder="Type your message"></textarea>
+    <div class="row">
+      <div><label for="date">Date</label><input id="date" type="date" required></div>
+      <div><label for="time">Time</label><input id="time" type="time" required></div>
+    </div>
+    <label for="repeat">Repeat</label>
+    <select id="repeat">
+      <option value="none">Don't repeat</option>
+      <option value="daily">Every day</option>
+      <option value="weekly">Every week</option>
+      <option value="monthly">Every month</option>
+      <option value="yearly">Every year (birthdays)</option>
+    </select>
+    <button class="primary" type="submit">Schedule message</button>
+  </form>
+
+  <h2>Scheduled</h2>
+  <div id="list"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const pad = n => String(n).padStart(2, "0");
+  const REPEAT = {daily:"every day", weekly:"every week", monthly:"every month", yearly:"every year"};
+
+  function toast(msg){
+    const t = $("toast"); t.textContent = msg; t.classList.add("show");
+    clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 2600);
+  }
+  function fmt(ms){
+    return new Date(ms).toLocaleString(undefined, {weekday:"short", day:"numeric", month:"short", hour:"numeric", minute:"2-digit"});
+  }
+  async function api(method, url, body){
+    const r = await fetch(url, {method, headers:{"Content-Type":"application/json"}, body: body ? JSON.stringify(body) : undefined});
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || "Something went wrong");
+    return data;
+  }
+
+  function renderStatus(s){
+    const pill = $("pill");
+    pill.className = "pill " + (s.connected ? "ok" : s.linked ? "warn" : "");
+    $("pillText").textContent = s.connected ? "Connected as +" + s.me :
+      s.linked ? "Linked, reconnecting… (check internet)" : "Not linked yet";
+    $("linkCard").hidden = s.linked;
+    $("form").hidden = !s.linked;
+    $("codeBox").hidden = !s.pairingCode;
+    if (s.pairingCode) $("code").textContent = s.pairingCode.replace(/(.{4})(.{4})/, "$1-$2");
+    $("linkErr").textContent = s.error || "";
+  }
+
+  function renderItems(items){
+    const list = $("list");
+    const sorted = items.slice().sort((a, b) => (a.done - b.done) || (a.at - b.at));
+    if (!sorted.length){ list.innerHTML = '<div class="empty">Nothing scheduled yet.</div>'; return; }
+    list.innerHTML = "";
+    sorted.forEach(item => {
+      const el = document.createElement("div");
+      el.className = "item" + (item.done ? " done" : "");
+      const top = document.createElement("div"); top.className = "top";
+      const to = document.createElement("div"); to.className = "to"; to.textContent = item.name ? item.name + " (+" + item.phone + ")" : "+" + item.phone;
+      const when = document.createElement("div"); when.className = "when"; when.textContent = fmt(item.at);
+      top.append(to, when);
+      const st = document.createElement("div");
+      st.className = "state" + (item.error ? " err" : "");
+      st.textContent = item.error ? "Problem: " + item.error :
+        item.done ? "Sent " + (item.lastSent ? fmt(item.lastSent) : "") :
+        "Will send automatically" + (item.repeat !== "none" ? " · " + REPEAT[item.repeat] : "") +
+        (item.lastSent ? " · last sent " + fmt(item.lastSent) : "");
+      const msg = document.createElement("div"); msg.className = "msg"; msg.textContent = item.text;
+      const del = document.createElement("button"); del.type = "button"; del.className = "small";
+      del.textContent = item.done ? "Remove" : "Cancel";
+      del.onclick = async () => {
+        if (!confirm(item.done ? "Remove from list?" : "Cancel this message?")) return;
+        await api("DELETE", "/api/items/" + item.id); refresh();
+      };
+      el.append(top, st, msg, del);
+      list.append(el);
+    });
+  }
+
+  async function refresh(){
+    try {
+      const {status, items} = await api("GET", "/api/state");
+      renderStatus(status); renderItems(items);
+    } catch(e){
+      $("pill").className = "pill"; $("pillText").textContent = "Bot not running — start it in Termux";
+    }
+  }
+
+  $("pairBtn").onclick = async () => {
+    try {
+      await api("POST", "/api/pair", {phone: $("myPhone").value});
+      toast("Getting code…");
+      $("linkErr").textContent = "";
+    } catch(e){ $("linkErr").textContent = e.message; }
+  };
+
+  function setDefaultTime(){
+    const d = new Date(Date.now() + 60 * 60000);
+    $("date").value = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+    $("time").value = pad(d.getHours()) + ":" + pad(d.getMinutes());
+  }
+
+  $("form").onsubmit = async e => {
+    e.preventDefault();
+    const at = new Date($("date").value + "T" + $("time").value).getTime();
+    if (at <= Date.now() - 60000 && !confirm("That time has passed. Send it right away?")) return;
+    try {
+      await api("POST", "/api/items", {
+        phone: $("phone").value, name: $("name").value, text: $("text").value,
+        at, repeat: $("repeat").value, tz: new Date(at).getTimezoneOffset()
+      });
+      $("form").reset(); setDefaultTime();
+      toast("Scheduled for " + fmt(at));
+      refresh();
+    } catch(err){ toast(err.message); }
+  };
+
+  setDefaultTime();
+  refresh();
+  setInterval(refresh, 3000);
+})();
+</script>
+</body>
+</html>

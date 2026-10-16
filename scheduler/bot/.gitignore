@@ -1,0 +1,4 @@
+node_modules/
+auth/
+schedule.json*
+bot.log

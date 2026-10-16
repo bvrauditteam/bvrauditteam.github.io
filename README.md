@@ -7,5 +7,7 @@ Public GitHub Pages site for B V Rao & Co. tools that need free public hosting.
   repository, which stays the source. Update both together.
 - **WA Scheduler** (schedule WhatsApp messages): https://bvrauditteam.github.io/scheduler/
   Lives only here, in `scheduler/`. Messages are stored in the phone's browser, not on any server.
+- **WA Auto Sender** (sends scheduled WhatsApp messages by itself, phone locked or not): `scheduler/bot/`
+  Runs in Termux on the phone. Setup steps in `scheduler/bot/README.md`.
 
 Never put passwords, keys or client data here: this repository is public.
