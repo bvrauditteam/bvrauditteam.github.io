@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>WA Scheduler</title>
+<meta name="theme-color" content="#14181c">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  :root{
+    --ink:#14181c;
+    --ink-soft:#1f262d;
+    --paper:#f4f1e8;
+    --green:#25d366;
+    --green-dim:#0b3d24;
+    --amber:#f5a623;
+    --red:#ff6b6b;
+    --line:#2c343c;
+    --muted:#7c8892;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--ink);
+    color:var(--paper);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    min-height:100vh;
+    padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0;
+    display:flex;
+    justify-content:center;
+  }
+  .app{width:100%; max-width:460px; padding:28px 16px 48px;}
+  h1{font-size:24px; margin:0 0 4px; letter-spacing:-.3px;}
+  h1 span{color:var(--green);}
+  .sub{color:var(--muted); font-size:14px; margin:0 0 22px;}
+  .card{background:var(--ink-soft); border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:18px;}
+  label{display:block; font-size:13px; color:var(--muted); margin:12px 0 6px;}
+  label:first-child{margin-top:0;}
+  input,textarea,select{
+    width:100%; background:var(--ink); color:var(--paper);
+    border:1px solid var(--line); border-radius:10px;
+    padding:12px; font-size:16px; font-family:inherit;
+  }
+  textarea{min-height:96px; resize:vertical;}
+  input:focus,textarea:focus,select:focus{outline:2px solid var(--green); outline-offset:-1px;}
+  .row{display:flex; gap:10px;}
+  .row > *{flex:1; min-width:0;}
+  .hint{font-size:12px; color:var(--muted); margin-top:6px;}
+  button{
+    font:inherit; font-size:16px; font-weight:600; border:0; border-radius:12px;
+    padding:13px 16px; cursor:pointer;
+  }
+  .primary{background:var(--green); color:#062414; width:100%; margin-top:16px;}
+  .ghost{background:transparent; color:var(--paper); border:1px solid var(--line);}
+  .small{font-size:13px; padding:8px 11px; border-radius:9px; font-weight:500;}
+  .notice{
+    border:1px solid var(--amber); color:var(--amber); background:rgba(245,166,35,.08);
+    border-radius:12px; padding:12px; font-size:13px; line-height:1.45; margin-bottom:18px;
+  }
+  .notice button{margin-top:8px;}
+  h2{font-size:15px; color:var(--muted); font-weight:600; margin:24px 0 10px; text-transform:uppercase; letter-spacing:.6px;}
+  .item{background:var(--ink-soft); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:10px;}
+  .item.due{border-color:var(--green); box-shadow:0 0 0 1px var(--green) inset;}
+  .item.sent{opacity:.55;}
+  .top{display:flex; justify-content:space-between; gap:10px; align-items:baseline;}
+  .to{font-weight:600; overflow-wrap:anywhere;}
+  .when{font-size:13px; color:var(--muted); white-space:nowrap;}
+  .count{font-variant-numeric:tabular-nums; color:var(--green); font-size:13px; margin-top:4px;}
+  .item.due .count{color:var(--amber); font-weight:600;}
+  .msg{margin:8px 0 10px; white-space:pre-wrap; overflow-wrap:anywhere; font-size:15px; line-height:1.4;}
+  .actions{display:flex; flex-wrap:wrap; gap:8px;}
+  .send{background:var(--green); color:#062414;}
+  .del{color:var(--red);}
+  .empty{color:var(--muted); font-size:14px; text-align:center; padding:18px 0;}
+  .help{font-size:13px; color:var(--muted); line-height:1.55;}
+  .help b{color:var(--paper);}
+  .help ol{padding-left:18px; margin:8px 0 0;}
+  .toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%);
+    background:var(--paper); color:var(--ink); padding:10px 16px; border-radius:10px;
+    font-size:14px; opacity:0; transition:opacity .2s; pointer-events:none; max-width:90vw;
+  }
+  .toast.show{opacity:1;}
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>WA <span>Scheduler</span></h1>
+  <p class="sub">Write a WhatsApp message now, pick a time, and get an alert to send it right then.</p>
+
+  <div class="notice" id="notifyNotice" hidden>
+    Turn on notifications so you get an alert when a message is due.
+    <br><button class="ghost small" id="notifyBtn">Turn on alerts</button>
+  </div>
+
+  <form class="card" id="form" autocomplete="off">
+    <label for="phone">Send to (WhatsApp number with country code)</label>
+    <input id="phone" type="tel" inputmode="tel" placeholder="e.g. 91 98765 43210">
+    <div class="hint">Leave blank to pick the contact in WhatsApp when it's time.</div>
+
+    <label for="name">Name (optional, just for your list)</label>
+    <input id="name" type="text" placeholder="e.g. Ravi">
+
+    <label for="text">Message</label>
+    <textarea id="text" required placeholder="Type your message"></textarea>
+
+    <div class="row">
+      <div>
+        <label for="date">Date</label>
+        <input id="date" type="date" required>
+      </div>
+      <div>
+        <label for="time">Time</label>
+        <input id="time" type="time" required>
+      </div>
+    </div>
+
+    <label for="repeat">Repeat</label>
+    <select id="repeat">
+      <option value="none">Don't repeat</option>
+      <option value="daily">Every day</option>
+      <option value="weekly">Every week</option>
+      <option value="monthly">Every month</option>
+      <option value="yearly">Every year (birthdays)</option>
+    </select>
+
+    <button class="primary" type="submit">Schedule message</button>
+  </form>
+
+  <h2>Scheduled</h2>
+  <div id="list"></div>
+
+  <h2>How it works</h2>
+  <div class="card help">
+    WhatsApp doesn't let any website send messages on its own, so this app <b>reminds you and fills in the message</b> — you just tap <b>Send</b>.
+    <ol>
+      <li>When the time comes, you get an alert (keep this app open, or add it to your home screen).</li>
+      <li>Tap the alert or the green <b>Send now</b> button. WhatsApp opens with the chat and message ready.</li>
+      <li>Tap send in WhatsApp. Done.</li>
+    </ol>
+    <p>Phones can pause apps in the background. For a reminder that always rings, tap <b>Add to calendar</b> on a message — your phone's calendar will alert you, and the event has the WhatsApp link inside it.</p>
+    <p>Messages are saved only on this phone/browser.</p>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  const STORE_KEY = "wa-scheduler-items";
+  const $ = id => document.getElementById(id);
+  let items = load();
+
+  function load(){
+    try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; }
+    catch(e){ return []; }
+  }
+  function save(){
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(items)); }
+    catch(e){ toast("Couldn't save on this browser (private mode?)"); }
+  }
+
+  function toast(msg){
+    const t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(() => t.classList.remove("show"), 2600);
+  }
+
+  function cleanPhone(p){ return (p || "").replace(/[^\d]/g, ""); }
+
+  function waLink(item){
+    const text = encodeURIComponent(item.text);
+    const phone = cleanPhone(item.phone);
+    return phone ? "https://wa.me/" + phone + "?text=" + text
+                 : "https://wa.me/?text=" + text;
+  }
+
+  function pad(n){ return String(n).padStart(2, "0"); }
+
+  function nextTime(ms, repeat){
+    const d = new Date(ms);
+    if (repeat === "daily") d.setDate(d.getDate() + 1);
+    else if (repeat === "weekly") d.setDate(d.getDate() + 7);
+    else if (repeat === "monthly") d.setMonth(d.getMonth() + 1);
+    else if (repeat === "yearly") d.setFullYear(d.getFullYear() + 1);
+    return d.getTime();
+  }
+
+  function fmtWhen(ms){
+    return new Date(ms).toLocaleString(undefined, {
+      weekday:"short", day:"numeric", month:"short", hour:"numeric", minute:"2-digit"
+    });
+  }
+
+  function fmtLeft(ms){
+    let s = Math.max(0, Math.round(ms / 1000));
+    const d = Math.floor(s / 86400); s %= 86400;
+    const h = Math.floor(s / 3600); s %= 3600;
+    const m = Math.floor(s / 60); s %= 60;
+    if (d) return "in " + d + "d " + h + "h";
+    if (h) return "in " + h + "h " + m + "m";
+    if (m) return "in " + m + "m " + pad(s) + "s";
+    return "in " + s + "s";
+  }
+
+  const REPEAT_LABEL = {daily:"every day", weekly:"every week", monthly:"every month", yearly:"every year"};
+
+  function render(){
+    const list = $("list");
+    const now = Date.now();
+    const sorted = items.slice().sort((a, b) => (a.sent - b.sent) || (a.at - b.at));
+    if (!sorted.length){
+      list.innerHTML = '<div class="empty">Nothing scheduled yet.</div>';
+      return;
+    }
+    list.innerHTML = "";
+    sorted.forEach(item => {
+      const due = !item.sent && item.at <= now;
+      const el = document.createElement("div");
+      el.className = "item" + (due ? " due" : "") + (item.sent ? " sent" : "");
+      el.dataset.id = item.id;
+
+      const who = item.name || (item.phone ? "+" + cleanPhone(item.phone) : "Choose contact in WhatsApp");
+      const top = document.createElement("div");
+      top.className = "top";
+      const to = document.createElement("div");
+      to.className = "to";
+      to.textContent = who;
+      const when = document.createElement("div");
+      when.className = "when";
+      when.textContent = fmtWhen(item.at);
+      top.append(to, when);
+
+      const count = document.createElement("div");
+      count.className = "count";
+      count.textContent = item.sent ? "Sent" :
+        due ? "Time to send!" :
+        fmtLeft(item.at - now) + (item.repeat !== "none" ? " · repeats " + REPEAT_LABEL[item.repeat] : "");
+
+      const msg = document.createElement("div");
+      msg.className = "msg";
+      msg.textContent = item.text;
+
+      const actions = document.createElement("div");
+      actions.className = "actions";
+      actions.append(
+        btn(item.sent ? "Send again" : "Send now", "small send", () => sendNow(item.id)),
+        btn("Add to calendar", "small ghost", () => downloadIcs(item)),
+        btn("Edit", "small ghost", () => edit(item.id)),
+        btn("Delete", "small ghost del", () => remove(item.id))
+      );
+
+      el.append(top, count, msg, actions);
+      list.append(el);
+    });
+  }
+
+  function btn(label, cls, fn){
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = cls;
+    b.textContent = label;
+    b.addEventListener("click", fn);
+    return b;
+  }
+
+  function find(id){ return items.find(i => i.id === id); }
+
+  function sendNow(id){
+    const item = find(id);
+    if (!item) return;
+    window.open(waLink(item), "_blank");
+    markSent(item);
+  }
+
+  // A sent repeating message rolls forward to its next time; a one-off is marked sent.
+  function markSent(item){
+    if (item.repeat !== "none"){
+      let next = nextTime(item.at, item.repeat);
+      while (next <= Date.now()) next = nextTime(next, item.repeat);
+      item.at = next;
+      item.notified = false;
+    } else {
+      item.sent = true;
+    }
+    save();
+    render();
+  }
+
+  function remove(id){
+    if (!confirm("Delete this scheduled message?")) return;
+    items = items.filter(i => i.id !== id);
+    save();
+    render();
+  }
+
+  function edit(id){
+    const item = find(id);
+    if (!item) return;
+    const d = new Date(item.at);
+    $("phone").value = item.phone || "";
+    $("name").value = item.name || "";
+    $("text").value = item.text;
+    $("date").value = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+    $("time").value = pad(d.getHours()) + ":" + pad(d.getMinutes());
+    $("repeat").value = item.repeat;
+    items = items.filter(i => i.id !== id);
+    save();
+    render();
+    window.scrollTo({top:0, behavior:"smooth"});
+    toast("Editing — tap Schedule to save");
+  }
+
+  function icsDate(ms){
+    const d = new Date(ms);
+    return d.getUTCFullYear() + pad(d.getUTCMonth() + 1) + pad(d.getUTCDate()) + "T" +
+      pad(d.getUTCHours()) + pad(d.getUTCMinutes()) + pad(d.getUTCSeconds()) + "Z";
+  }
+
+  function icsEscape(s){
+    return s.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+  }
+
+  function downloadIcs(item){
+    const link = waLink(item);
+    const who = item.name || (item.phone ? "+" + cleanPhone(item.phone) : "WhatsApp");
+    const rrule = {daily:"DAILY", weekly:"WEEKLY", monthly:"MONTHLY", yearly:"YEARLY"}[item.repeat];
+    const lines = [
+      "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//WA Scheduler//EN",
+      "BEGIN:VEVENT",
+      "UID:" + item.id + "@wa-scheduler",
+      "DTSTAMP:" + icsDate(Date.now()),
+      "DTSTART:" + icsDate(item.at),
+      "DTEND:" + icsDate(item.at + 5 * 60000),
+      "SUMMARY:" + icsEscape("Send WhatsApp to " + who),
+      "DESCRIPTION:" + icsEscape(item.text + "\n\nTap to send: " + link),
+      "URL:" + link
+    ];
+    if (rrule) lines.push("RRULE:FREQ=" + rrule);
+    lines.push(
+      "BEGIN:VALARM", "ACTION:DISPLAY", "TRIGGER:PT0M",
+      "DESCRIPTION:" + icsEscape("Send WhatsApp to " + who),
+      "END:VALARM",
+      "END:VEVENT", "END:VCALENDAR"
+    );
+    const blob = new Blob([lines.join("\r\n")], {type:"text/calendar"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "whatsapp-reminder.ics";
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  }
+
+  $("form").addEventListener("submit", e => {
+    e.preventDefault();
+    const text = $("text").value.trim();
+    const at = new Date($("date").value + "T" + $("time").value).getTime();
+    const phone = $("phone").value.trim();
+    if (!text){ toast("Type a message first"); return; }
+    if (isNaN(at)){ toast("Pick a date and time"); return; }
+    if (phone && cleanPhone(phone).length < 8){ toast("Add the full number with country code"); return; }
+    if (at <= Date.now() - 60000 && !confirm("That time has already passed. Schedule it anyway?")) return;
+
+    items.push({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+      phone, name: $("name").value.trim(), text, at,
+      repeat: $("repeat").value, sent: false, notified: false
+    });
+    save();
+    $("form").reset();
+    setDefaultTime();
+    render();
+    toast("Scheduled for " + fmtWhen(at));
+    askNotify();
+  });
+
+  function setDefaultTime(){
+    const d = new Date(Date.now() + 60 * 60000);
+    $("date").value = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+    $("time").value = pad(d.getHours()) + ":" + pad(d.getMinutes());
+  }
+
+  // ---- alerts ----
+  let swReg = null;
+  if ("serviceWorker" in navigator){
+    navigator.serviceWorker.register("service-worker.js").then(r => { swReg = r; }).catch(() => {});
+  }
+
+  function notifySupported(){ return "Notification" in window; }
+
+  function updateNotifyNotice(){
+    $("notifyNotice").hidden = !(notifySupported() && Notification.permission === "default" && items.some(i => !i.sent));
+  }
+
+  function askNotify(){
+    if (notifySupported() && Notification.permission === "default"){
+      Notification.requestPermission().then(updateNotifyNotice);
+    }
+    updateNotifyNotice();
+  }
+  $("notifyBtn").addEventListener("click", askNotify);
+
+  function beep(){
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      [0, .25, .5].forEach(t => {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.frequency.value = 880;
+        g.gain.setValueAtTime(.25, ctx.currentTime + t);
+        g.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + t + .2);
+        o.connect(g); g.connect(ctx.destination);
+        o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + .2);
+      });
+    } catch(e){}
+  }
+
+  function alertDue(item){
+    const who = item.name || (item.phone ? "+" + cleanPhone(item.phone) : "WhatsApp");
+    const title = "Time to send to " + who;
+    const opts = {body:item.text, icon:"icon.svg", tag:item.id, requireInteraction:true, data:{link:waLink(item)}};
+    beep();
+    if ("vibrate" in navigator) navigator.vibrate([300, 150, 300]);
+    if (notifySupported() && Notification.permission === "granted"){
+      if (swReg && swReg.showNotification) swReg.showNotification(title, opts);
+      else {
+        try {
+          const n = new Notification(title, opts);
+          n.onclick = () => { window.open(waLink(item), "_blank"); n.close(); };
+        } catch(e){}
+      }
+    }
+    document.title = "⏰ " + title;
+  }
+
+  function tick(){
+    const now = Date.now();
+    let changed = false;
+    items.forEach(item => {
+      if (!item.sent && !item.notified && item.at <= now){
+        item.notified = true;
+        changed = true;
+        alertDue(item);
+      }
+    });
+    if (changed) save();
+    if (!items.some(i => !i.sent && i.at <= now)) document.title = "WA Scheduler";
+    render();
+  }
+
+  setDefaultTime();
+  updateNotifyNotice();
+  tick();
+  setInterval(tick, 1000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
+})();
+</script>
+</body>
+</html>

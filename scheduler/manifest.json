@@ -1,0 +1,19 @@
+{
+  "name": "WA Scheduler",
+  "short_name": "WA Timer",
+  "description": "Schedule WhatsApp messages and get reminded to send them on time",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#14181c",
+  "theme_color": "#14181c",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
